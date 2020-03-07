@@ -67,10 +67,138 @@ fn main() {
     // builds a vector of tasks t1, t2, t3
     let tasks: Tasks = vec![t1, t2, t3];
 
-    println!("tasks {:?}", &tasks);
-    // println!("tot_util {}", tot_util(&tasks));
+    // If you want to print  the entire tasks vector with one line.
+    // println!("tasks {:?}", &tasks);
+    // Seperate lines for tasks
+    // print_tasks(&tasks);
 
-    let (ip, tr) = pre_analysis(&tasks);
-    println!("ip: {:?}", ip);
-    println!("tr: {:?}", tr);
+    let (ip, tr, tt) = pre_analysis(&tasks);
+    println!("Process priority: {:?}", ip);
+    println!("Resources used by task: {:?}", tr);
+    println!("Task times: {:?}", tt);
+
+    println!("Total utilization {}", tot_util(&tasks));
+
+    tasks_result(&tasks, &ip, &tr, &tt);
+
+}
+
+// A function that prints an informative vector for each task
+// Task, Response, WCET, Blocking, Preemtion
+// To change between approx/exact preemtion, change line 114 and 92 to "exact" or "approx"
+fn tasks_result(tasks: &Vec<Task>, ip: &IdPrio, tr: &TaskResources, tt: &TaskTimes) {
+    for t in tasks {
+        let bl = blocking(&t, &ip, &tr);
+        let pr = preemtion(&t, &ip, &tasks, &tr, &tt, String::from("exact"));
+        let rt = response(&t, &ip, &tasks, &tr, &tt);
+        let temp_vec = tt.get(&t.id);
+        let worstcase = temp_vec.unwrap().get(1).unwrap();
+
+        
+        let vec = vec![
+            Info_Vec::Task(t.clone()),
+            Info_Vec::Float(rt),
+            Info_Vec::Int(*worstcase),
+            Info_Vec::Float(bl),
+            Info_Vec::Float(pr),
+        ];  
+
+        println!("Result vector: {:?}", vec);
+    } 
+}
+
+// Calculates reponse time for a given task and checks that it meets its deadline, if not it throws error.
+// To change preemtion between approx/exact, change line 114 to "exact" or "approx", as well as on line 92
+fn response(task: &Task, ip: &IdPrio, tasks: &Vec<Task>, tr: &TaskResources, tt: &TaskTimes) -> f32 {
+    let b = blocking(&task, &ip, &tr);
+    let p = preemtion(&task, &ip, &tasks, &tr, &tt, String::from("exact"));
+    let temp_vec = tt.get(&task.id);
+    let worstcase = temp_vec.unwrap().get(1).unwrap();
+    let response_time = *worstcase as f32 + b + p;
+    match error_checker::deadline_check(task.deadline, response_time) {
+        Err(e) => panic!("{:?}", e),
+        Ok(_response_time) => (),
+    }
+    response_time
+}
+
+// Calculates preemtion for tasks >= the prio of the given task, except itself.
+// Exact version is based on the recursive equation 7.22 mentioned in the exam spec
+fn preemtion(task: &Task, ip: &IdPrio, tasks: &Vec<Task>, tr: &TaskResources, tt: &TaskTimes, st: String) -> f32{
+    let mut total_preemtion = 0.0;
+    if st == "approx" {
+        for t in tasks {
+            if task.prio <= t.prio && task.id != t.id {
+                let temp_vec = tt.get(&t.id);
+                let arrival = temp_vec.unwrap().get(0).unwrap();
+                let worstcase = temp_vec.unwrap().get(1).unwrap();
+                let div_eq = task.deadline as f32 / *arrival as f32;
+                total_preemtion += div_eq.ceil() * *worstcase as f32;
+            } else {
+                total_preemtion += 0.0;
+            }
+        }
+    } else if st == "exact" {
+        for t in tasks {
+            if task.prio <= t.prio && task.id != t.id {
+                let temp_vec = tt.get(&t.id);
+                let arrival = temp_vec.unwrap().get(0).unwrap();
+                let worstcase = temp_vec.unwrap().get(1).unwrap();
+                let resp = response(&t, &ip, &tasks, &tr, &tt);
+                let div_eq = resp / *arrival as f32;
+                total_preemtion += div_eq.ceil() * *worstcase as f32;
+            } else {
+                total_preemtion += 0.0;
+            }
+        }
+    }
+    total_preemtion 
+}
+
+// Calculates WCET blocking for a given task.
+fn blocking(task: &Task, ip: &IdPrio, tr: &TaskResources) -> f32 {
+    let task_res = tr.get(&task.id);
+    let mut total_block = 0.0;
+    if task_res.is_some() {
+        for (key, val) in ip {
+            if task.prio > *val {
+                if tr.get(key).is_some() {
+                    for (key_rs, _val_rs) in task_res.unwrap() {
+                        for (key_ex, val_ex) in tr.get(key).unwrap() {
+                            if (key_rs == key_ex) && (total_block < *val_ex as f32) {
+                                total_block = *val_ex as f32;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    total_block
+}
+
+// Calculates CPU load for the different tasks and total CPU load, throws error if > 1
+fn tot_util (tasks: &Vec<Task>) -> f32 {
+    let mut tot = 0.0;
+    for t in tasks {
+        let util = (t.trace.end - t.trace.start) as f32 / t.inter_arrival as f32;
+        tot += util;
+        print!("{}", t.id);
+        println!(" utilization ratio: {:?}", util);
+    }
+    match error_checker::load_factor(tot) {
+        Err(e) => panic!("{:?}", e),
+        Ok(_load) => (),
+    }
+    tot
+}
+
+// Prints each task on a seperate line.
+fn print_tasks (tasks: &Vec<Task>) {
+    let mut counter = 0;
+    for t in tasks {
+        print!("{}", t.id);
+        println!(" {:?}", &tasks[counter]);
+        counter += 1;
+    }
 }

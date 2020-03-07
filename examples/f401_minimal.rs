@@ -12,9 +12,17 @@ use cortex_m::asm;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 
+static mut array: [u32; 10] = [0; 10];
+
 #[entry]
 fn main() -> ! {
-    hprintln!("Hello, world!").unwrap();
+    for i in 0..10 {
+       hprintln!("{}", i).unwrap();
+       unsafe {array[i] = i as u32;}
+    }
+
+    unsafe{hprintln!("{:?}", array).unwrap();}
+    
 
     loop {
         asm::nop();
