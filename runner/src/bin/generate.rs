@@ -82,7 +82,7 @@ fn main() {
         trace: Trace {
             id: "T1".to_string(),
             start: 0,
-            end: 10,
+            end: 30,
             inner: vec![],
         },
     };
@@ -90,8 +90,8 @@ fn main() {
     let t2 = Task {
         id: "T2".to_string(),
         prio: 2,
-        deadline: 200,
-        inter_arrival: 200,
+        deadline: 150,
+        inter_arrival: 150,
         trace: Trace {
             id: "T2".to_string(),
             start: 0,
@@ -211,10 +211,10 @@ fn main() {
 fn tasks_result(tasks: &Vec<Task>, ip: &IdPrio, tr: &TaskResources, tt: &TaskTimes) {
     for t in tasks {
         let mut used_tasks: UsedTasks = HashSet::new();
-        let mut test: UsedTasks = HashSet::new();
+        let mut seperate: UsedTasks = HashSet::new();
         let bl = blocking(&t, &ip, &tr);
-        let pr = preemtion(&t, &ip, &tasks, &mut used_tasks, &tr, &tt, String::from("exact"));
-        let rt = response(&t, &ip, &tasks, &mut test, &tr, &tt);
+        let pr = preemtion(&t, &ip, &tasks, &mut used_tasks, &tr, &tt, String::from("approx"));
+        let rt = response(&t, &ip, &tasks, &mut seperate, &tr, &tt);
         let temp_vec = tt.get(&t.id);
         let worstcase = temp_vec.unwrap().get(1).unwrap();
 
@@ -235,7 +235,7 @@ fn tasks_result(tasks: &Vec<Task>, ip: &IdPrio, tr: &TaskResources, tt: &TaskTim
 // To change preemtion between approx/exact, change line 114 to "exact" or "approx", as well as on line 92
 fn response(task: &Task, ip: &IdPrio, tasks: &Vec<Task>, mut used_tasks: &mut UsedTasks, tr: &TaskResources, tt: &TaskTimes) -> f32 {
     let b = blocking(&task, &ip, &tr);
-    let p = preemtion(&task, &ip, &tasks, &mut used_tasks, &tr, &tt, String::from("exact"));
+    let p = preemtion(&task, &ip, &tasks, &mut used_tasks, &tr, &tt, String::from("approx"));
     let temp_vec = tt.get(&task.id);
     let worstcase = temp_vec.unwrap().get(1).unwrap();
     let response_time = *worstcase as f32 + b + p;
@@ -265,22 +265,19 @@ fn preemtion(task: &Task, ip: &IdPrio, tasks: &Vec<Task>, mut used_tasks: &mut U
     } else if st == "exact" {
         for t in tasks {
             if task.prio < t.prio && task.id != t.id {
-                let mut new_set: UsedTasks = HashSet::new();
                 let temp_vec = tt.get(&t.id);
                 let arrival = temp_vec.unwrap().get(0).unwrap();
                 let worstcase = temp_vec.unwrap().get(1).unwrap();
-                let resp = response(&t, &ip, &tasks, &mut new_set, &tr, &tt);
+                let resp = response(&t, &ip, &tasks, &mut used_tasks.clone(), &tr, &tt);
                 let div_eq = resp / *arrival as f32;
                 total_preemtion += div_eq.ceil() * *worstcase as f32;
-            } else if task.prio > t.prio {
-                total_preemtion += 0.0;
             } else if task.prio == t.prio && task.id != t.id {
-                if used_tasks.contains(&task.id.to_string()) && !used_tasks.contains(&t.id.to_string()) || used_tasks.is_empty() {
+                if !used_tasks.contains(&t.id.to_string()) || used_tasks.is_empty() {
                     let temp_vec = tt.get(&t.id);
                     let arrival = temp_vec.unwrap().get(0).unwrap();
                     let worstcase = temp_vec.unwrap().get(1).unwrap();
-                    used_tasks.insert(t.id.clone());
-                    let resp = response(&t, &ip, &tasks, &mut used_tasks, &tr, &tt);
+                    used_tasks.insert(task.id.clone());
+                    let resp = response(&t, &ip, &tasks, &mut used_tasks.clone(), &tr, &tt);
                     let div_eq = resp / *arrival as f32;
                     total_preemtion += div_eq.ceil() * *worstcase as f32;
                 } else {
