@@ -11,7 +11,7 @@ To run the home exam, from the /runner folder of the project run "cargo run --bi
 
 Note: To run different Task sets paste the new taskset instead of the old one,
 To change preemtion calculation between approximate and exact, two lines must be changed.
-Line 92 and 114 should both contain the string "exact" or "approx" to switch between the two calculations.
+Line 216 and 238 should both contain the string "exact" or "approx" to switch between the two calculations.
 
 ---
 
