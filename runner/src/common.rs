@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 // Errorhandler
 pub mod error_checker {
@@ -48,7 +48,7 @@ pub struct Trace {
 }
 
 #[derive(Debug)]
-pub enum Info_Vec {
+pub enum InfoVec {
     Task(Task),
     Float(f32),
     Int(u32),
@@ -59,6 +59,9 @@ pub enum Info_Vec {
 
 // Our task set
 pub type Tasks = Vec<Task>;
+
+// A set of used tasks (used in preemtion recursion to prevent infinite use of tasks with same prio.)
+pub type UsedTasks = HashSet<String>;
 
 // A map from Task/Resource identifiers to priority
 pub type IdPrio = HashMap<String, u8>;
